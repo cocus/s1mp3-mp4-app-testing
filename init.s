@@ -4,168 +4,91 @@
 .area _CODE
 
 _init::
-    push bc
-    push de
+    ; Stolen from https://github.com/retro-vault/libsdcc-z80/blob/main/sample/crt0.s
+    ld      (#__store_sp),sp        ; store current stack pointer
+    ld      sp,#__stack             ; load new stack pointer
 
-;    ld      hl, #0xFFF0
-;    add     hl, sp
-;    ld      sp, hl
-
-
-;    ld      bc, #0
-;    ld      de, #0xFFFF
-;    call    PutImage
-;
-;    ld de, #0
-;    call ClearScreen
-;
-;    ld e, #0xff
-;    call SetAsciiFont
-;
-;    ld c, #0x22 ; '"'
-;    ld e, #0x18
-;    call SETTEXTPOS
-
-    call _main
-
-    ld    de, #mystr
-    ld      c, #0xFF
-    call PUTS
-
-
-;    ld      hl, #4
-;    add     hl, sp
-;    call  STRLEN
-;    ld      hl, #4
-;    add     hl, sp
-;    ex      de, hl
-;    ld      c, #0xFF
-;    call PUTS
-
-
-;    ld	  de, #0
-;    call	UpdateScreen
-
-msgloop:          in	  a, (#0x4E)          ; set watchdog timer
-              		set	  #3, a
-              		out	  (0x4E), a
-
-              		ld	  a, #0x11           ; call API_MSG_GetSysMsg
-              		rst   0x08
-
-                    cp #4
-                    jr z, is_4
-
-                  jp    msgloop           ; infinite loop
-
-is_4:
-
-
-
-
-
-
-    ld      hl, #0
-    ex      de, hl
-    ld      hl, #0x10
-    add     hl, sp
-    ld      sp, hl
-    ex      de, hl
-
-
-    pop     bc
-    jp      got_msg4
-    ret
-
-mystr:
-	.ascii "HI FROM ASM"
-	.db 0x00
-usbdisk:
-    .ascii "main.ap"
-    .db 0x00
-
-ExecAP::
-    ld      a, #0x20
-    jp      0x8
-
-PutImage::
-    ld      a, #2
-    jp      0x20
-
-ClearScreen::
-    ld      hl, #0xA0
-    jp      0x10
-
-SetAsciiFont::     ld    a, #5
-                  jp    0x20
-
-UpdateScreen:     ld    a, #0x10
-                  jp    0x20
-PUTS::
-    ld      hl, #0x11A3
-    jp      0x10
-
-SETTEXTPOS::
-ld      a, #6
-jp      0x20
-
-STRLEN::                                 ; CODE XREF: entry+1D↑p
-                                        ; entry+38↑p
-                push    af
-                push    hl
-                push    de
-                push    bc
-                xor     a
-                ex      de, hl
-loc_D1F:                                ; CODE XREF: StrLen+9↓j
-                cp      (hl)
-                ldi
-                jr      nz, loc_D1F
-                pop     bc
-                pop     de
-                pop     hl
-                pop     af
-                ret
-
-
-got_msg4::
-    ex      de, hl
-    ex      (sp), hl
-    ex      de, hl
-    push    hl
-    call    probably_address_of_24
-    jr      nz, loc_C04
-    jr      loc_C08
-
-loc_C04:
-    ld      hl, #0x1008
-    rst     0x10
-loc_C08:
-    pop     hl
-    pop     de
-
-    ld    de, #usbdisk
-    ld     bc, #0x1
-    call ExecAP
-    ret
-
-probably_address_of_24::
-    push    de
-    ld      a, e
-    rlca
-    rlca
-    rlca
-    and     #7
-    push    hl
+    ;; store all regs
+    push    af
     push    bc
-    ld      hl, (0x98)
-    ld      b, #0
-    ld      c, a
-    add     hl, bc
-    ld      a, (hl)
-    cp      e
-    pop     bc
+    push    de
+    push    hl
+    push    ix
+    push    iy
+    ex      af, af'
+    push    af
+    exx
+    push    bc
+    push    de
+    push    hl
+
+    call    gsinit                  ; call SDCC init code
+
+    call    _main
+
+    ; turn off backlight
+    in a, (#0xee) ; gpoa
+    and a, #0xfd
+    out (#0xee), a
+
+; wdt bite
+loop:
+    jp loop
+
+    ;; restore all regs
     pop     hl
     pop     de
+    pop     bc
+    pop     af
+    exx
+    ex      af,af'
+    pop     iy
+    pop     ix
+    pop     hl
+    pop     de
+    pop     bc
+    pop     af
+
+    ld      sp,(#__store_sp)        ; restore original stack pointer
+
+    ;; return to wherever you were called from
     ret
 
+        ;;	(linker documentation:) where specific ordering is desired -
+        ;;	the first linker input file should have the area definitions
+        ;;	in the desired order
+        .area   _GSINIT
+        .area   _GSFINAL
+        .area   _HOME
+        .area   _INITIALIZER
+        .area   _INITFINAL
+        .area   _INITIALIZED
+        .area   _DATA
+        .area   _BSS
+        .area   _HEAP
+
+        ;;	this area contains data initialization code.
+        .area _GSINIT
+gsinit:
+        ;; initialize vars from initializer
+        ld      de, #s__INITIALIZED
+        ld      hl, #s__INITIALIZER
+        ld      bc, #l__INITIALIZER
+        ld      a, b
+        or      a, c
+        jr      z, gsinit_none
+        ldir
+gsinit_none:
+        .area _GSFINAL
+        ret
+
+        .area _DATA
+        .area _BSS
+        ;; this is where we store the stack pointer
+__store_sp:
+        .word 1
+        ;; 1024 bytes of operating system stack
+        .ds	1024
+__stack::
+        .area _HEAP
+__heap:

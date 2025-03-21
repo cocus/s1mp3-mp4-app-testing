@@ -1,9 +1,12 @@
 CC=sdcc
 AS=sdasz80
 LD=sdld
-CFLAGS=-mz80 --no-std-crt0 --vc
+CFLAGS=-mz80 --no-std-crt0 --nostdlib --vc
 ASFLAGS=
-LDFLAGS=
+LDFLAGS= -mz80 -Wl -y \
+		--std-c11 -mz80 --debug \
+		--no-std-crt0 \
+		-lz80
 
 all: main.bin
 # main.ap
@@ -18,24 +21,25 @@ fw.bin: main.ap
 
 %-asm.rel: %.s
 	@echo "[SDASZ80] $< -> $@"
-	@$(AS) -o $@ $<
+	@$(AS) -xlos -g -o $@ $<
 
 %.rel: %.c
 	@echo "[SDCC] $< -> $@"
-	$(CC) $(CFLAGS) --code-loc 0x3400 --data-loc 0x3400 -c -o $@ $^
+	$(CC) $(CFLAGS) -c -o $@ $^
 
 %-ap.rel: %.c
 	@echo "[SDCC] $< -> $@"
-	$(CC) $(CFLAGS) --code-loc 0x0800 --data-loc 0x0800 -c -o $@ $^
+	$(CC) $(CFLAGS) -c -o $@ $^
 
 main.ihx: init-asm.rel actos_api-asm.rel main.rel
 	@echo "[SDLD] $^ -> $@"
-	$(LD) -n -f link.lk -m -b _CODE=0x3400 -b _DATA=0x3400 -i $@ $^
+	$(CC) $(LDFLAGS) --code-loc 0x3400 --data-loc 0x3500 -o $@ $^
+#-n -f link.lk -m -b _CODE=0x3400 -b _DATA=0x3500 -i
 # $(CC) $(CFLAGS) --code-loc 0x3400 --data-loc 0x3400 -o $@ $^
 
 main-ap.ihx: init-asm.rel actos_api-asm.rel main-ap.rel
 	@echo "[SDLD] $^ -> $@"
-	$(LD) -n -f link.lk -m -b _CODE=0x0800 -b _DATA=0x0800 -i $@ $^
+	$(LD) -n -f link.lk -m -b --code-loc 0x0800 --data-loc 0x0800 _CODE=0x0800 -b _DATA=0x0800 -i $@ $^
 
 %.bin: %.ihx
 	@echo "[IHX->BIN] $< -> $@"
@@ -75,4 +79,4 @@ flasha2: main-stripped.bin
 	loadram.exe -u 2ndstage.bin $<
 
 clean:
-	@rm -f myap.rel init.rel aphdr.lst aphdr.bin actos_api-asm.rel main.ihx main.bin main-stripped.* main.rel main.sym main.noi main.lst main.map main.lk main-ap* fw.bin init-*
+	@rm -f actos_api-asm.lst actos_api-asm.rel actos_api-asm.sym myap.rel init.rel aphdr.lst aphdr.bin actos_api-asm.rel main.ihx main.bin main-stripped.* main.rel main.cdb main.sym main.noi main.lst main.map main.lk main-ap* fw.bin init-*

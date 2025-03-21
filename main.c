@@ -7,6 +7,7 @@
 #define __sfr unsigned char
 #define __at(x)
 #endif
+#if 0
 
 #if 0
 void main(void);
@@ -55,12 +56,7 @@ void init(void) __naked
 }
 #endif
 
-__sfr __at(WATCHDOG_REG) REG_WATCHDOG;
 
-void Watchdog_Pet(void)
-{
-    REG_WATCHDOG |= WATCHDOG_RESET;
-}
 
 uint8_t API_RST8_no_params(uint8_t fun) __naked __sdcccall(1)
 {
@@ -209,7 +205,7 @@ typedef struct
 // ld  bc,LWRD p_fill_buf
 // mPutImage
 //  Write the display content into the display Buffer imageregion: display area imageaddr: display content pointer
-void PutImage(/* hl */ region_t *imageregion, /* de */ char *imageaddr) __naked __sdcccall(1)
+#if 0 
 {
     (void)imageregion;
     (void)imageaddr;
@@ -218,7 +214,7 @@ void PutImage(/* hl */ region_t *imageregion, /* de */ char *imageaddr) __naked 
     // de=pointer to the image range structure region_t
     // bc=address of the displayed content
 }
-
+#endif
 void ClearScreen(/* hl */ region_t *imageregion) __naked __sdcccall(1)
 {
     (void)imageregion;
@@ -227,7 +223,6 @@ void ClearScreen(/* hl */ region_t *imageregion) __naked __sdcccall(1)
     // de=pointer to the image range structure region_t
 }
 
-void SetTextPos(uint8_t col /* a */, uint8_t row /* l */) __naked __sdcccall(1)
 {
     (void)col;
     (void)row;
@@ -238,7 +233,6 @@ void SetTextPos(uint8_t col /* a */, uint8_t row /* l */) __naked __sdcccall(1)
 }
 
 // Output character code: Ascii code, GB code, BIG5 code
-void PutChar(uint16_t code) __naked __sdcccall(1)
 {
     (void)code;
     API_RST20_one_param(API_PutChar /* a */, code /* hl */);
@@ -257,7 +251,6 @@ void PutS(/* hl */ char *str, /* de */ uint16_t strlen) __naked __sdcccall(1)
     //** c= string output length
 }
 
-extern void PutS_2(/* hl */ char *str, /* de */ uint16_t strlen) __naked __sdcccall(1);
 
 //Get the current power level
 //para: none
@@ -272,24 +265,17 @@ void UpdateScreen(/* hl */ region_t *imageregion) __naked __sdcccall(1)
     // de=pointer to the image range structure region_t
 }
 
-// FontID
-#define FONT_TYPE_TINY 0xff
-#define FONT_TYPE_TINY_INVERT 0xff
-#define FONT_TYPE_SMALL 0
-#define FONT_TYPE_SMALL_INVERT 1
-#define FONT_TYPE_LARGE 4
-#define FONT_TYPE_LARGE_INVERT 0xff
-#define FONT_TYPE_DEFAULT FONT_TYPE_SMALL
+
 
 // Set Ascii font FontID see the definition above
-void SetAsciiFont(unsigned char FontID) __naked __sdcccall(1)
+
 {
     (void)FontID;
     API_RST20_one_param(API_SetAsciiFont /* a */, FontID /* hl */);
     __asm__("ret");
     // e=Font selection 0:6*8 1:8*16
 }
-
+#endif
 #define API_MSG_PutSysMsg 0x10
 #define API_MSG_GetSysMsg 0x11
 
@@ -313,9 +299,12 @@ void SetAsciiFont(unsigned char FontID) __naked __sdcccall(1)
 #define Msg_KeyHold 0x22
 #define Msg_KeyUnHold 0x24
 
-unsigned char GetSysMsg(void)
+
+__sfr __at(WATCHDOG_REG) REG_WATCHDOG;
+
+inline void Watchdog_Pet(void)
 {
-    return API_RST8_no_params(API_MSG_GetSysMsg);
+    REG_WATCHDOG |= WATCHDOG_RESET;
 }
 
 
@@ -432,8 +421,37 @@ const char hourglass[] = {
     0x20*/
 };
 
+
+typedef struct
+{
+    char x;      // column position
+    char y;      // row position
+    char width;  // width
+    char height; // height
+} region_t;
+
+
+// FontID
+#define FONT_TYPE_TINY 0xff
+#define FONT_TYPE_TINY_INVERT 0xff
+#define FONT_TYPE_SMALL 0
+#define FONT_TYPE_SMALL_INVERT 1
+#define FONT_TYPE_LARGE 4
+#define FONT_TYPE_LARGE_INVERT 0xff
+#define FONT_TYPE_DEFAULT FONT_TYPE_SMALL
+
+/* API */
+extern void PutS_2(/* hl */ char *str, /* de */ uint16_t strlen) __naked __sdcccall(1);
+extern void PutImage(/* hl */ region_t *imageregion, /* de */ char *imageaddr) __naked __sdcccall(1);
+extern void ClearScreen(/* hl */ region_t *imageregion) __naked __sdcccall(1);
+extern /* a */ unsigned char GetSysMsg(void) __naked __sdcccall(1);
+extern void SetAsciiFont(/* hl */ unsigned char FontID) __naked __sdcccall(1);
+void SetTextPos(uint8_t col /* a */, uint8_t row /* l */) __naked __sdcccall(1);
+extern void PutChar(uint16_t code) __naked __sdcccall(1);
+
 __sfr __at(BATTERY_MON_REG) REG_BATTERY_MON;
 
+#if 0
 //__sfr __at(WATCHDOG_REG) REG_WATCHDOG;
 uint8_t __at(0x8000) LCD_CMD;
 
@@ -474,92 +492,82 @@ static inline void ssd1789_set_page(uint8_t start, uint8_t end)
     ssd1789_data(start);
     ssd1789_data(end);
 }
+#endif
+
+#define MODE_READ   0
+
+#define SEEK_SET    0
+#define SEEK_CUR    1
+#define SEEK_END    2
+
+#define  MFSLOCATEPAGE  0xf0        // IPM Page 0
+
+typedef struct
+{
+    char    filename[11];
+    char    mode;
+    uint32_t   startaddr;
+    uint32_t   endaddr;
+    uint32_t   rwpointer;
+} SD_FILE;
+
+typedef struct
+{
+    char    fname[11];
+    char    fattr;
+    char    reserve0[2];
+    uint16_t   version;
+    uint32_t   offset;
+    uint32_t   size;
+    uint32_t   reserve1;
+    uint32_t   checksum;
+} SD_DIR;
+
+extern SD_FILE *SD_FOpen (char *filename, unsigned char mode) __naked __sdcccall(1);
+extern int SD_FClose (SD_FILE *fp) __naked __sdcccall(1);
+extern uint8_t SD_FSeek (SD_FILE *fp, unsigned char nFrom, unsigned long offset) __naked __sdcccall(1);
+extern long SD_FTell (SD_FILE *fp) __naked __sdcccall(1);
+extern int SD_FRead (SD_FILE *fp, void *buffer, unsigned int Length) __naked __sdcccall(1);
+extern uint8_t sMfsRcodeRead(char *filename, char * mfs_ap_head) __naked __sdcccall(1);
+
+
+/*  FS_Init()
+ *  初始化当前驱动器文件系统参数，之后才可以开始文件系统功能调用
+ */
+extern uint8_t FS_Init(void);
+
+char buffer[20] = {"FORRO!!1"};
 
 void main(void)
 {
-    // PutImage(NULL, IMGADDRNULL);
-    __asm__("ld bc, #0");      // null
-    __asm__("ld de, #0xffff"); // imgaddr
-    __asm__("ld a, #2");
-    __asm__("rst 0x20");
+    PutImage(NULL, IMGADDRNULL);
+    ClearScreen(NULL);
+    SetAsciiFont(1); // big font!
 
-    __asm__("ld de, #0"); // null
-    __asm__("ld hl, #0xA0");
-    __asm__("rst 0x10");
-    // ClearScreen(NULL);
-
-    // SetAsciiFont(FONT_TYPE_TINY);
-
-    char buffer[20] = {"FORRO!!1"};
     buffer[0] = 'G';
-
-
     itoa_3(REG_BATTERY_MON & 0xf, &buffer[3]);
-    // SetTextPos(0, 0x40);
+    SetTextPos(0, 0x40);
     PutS_2(buffer, -1);
 
+    //PutChar('M');
+
     while (GetSysMsg() != 4)
     {
         Watchdog_Pet();
     }
 
-    // ClearScreen:
-    __asm__("ld de, #0"); // null
-    __asm__("ld hl, #0xA0");
-    __asm__("rst 0x10");
+    /*PutImage((region_t*)0xf800, 0x0000);
+    ClearScreen(NULL);
 
-
-    ssd1789_set_col(54, 64);
-    ssd1789_set_page(46, 81);
-    ssd1789_cmd(0x5c);
-    gpio_c2_on();
-    uint16_t pos = 0;
-    for (pos = 0; pos < sizeof(hourglass); pos++)
-    {
-        LCD_CMD = hourglass[pos];
-    }
-    
     while (GetSysMsg() != 4)
     {
         Watchdog_Pet();
-    }
-    __asm__("ld de, #0"); // null
-    __asm__("ld hl, #0xA0");
-    __asm__("rst 0x10");
-#if 0
-    API_Screen_Clear(0 /* hl */, 0xffff /* de */);
-    API_Update_Screen(0);
+    }*/
 
-    API_Set_Text_Pos(0x0, 0x40);
-    //API_PutS("HI FROM C", 0x00ff);
+    buffer[0] = 'B';
+    buffer[1] = 'y';
+    buffer[2] = 'e';
+    buffer[3] = '\0';
 
-    while(1)
-    {
-   Watchdog_Pet();
-   if (API_Get_Sys_Msg() == 4)
-   {
-  break;
-   }
-    }
-
-    API_Screen_Clear(0 /* hl */, 0x00ff /* de */);
-    API_Update_Screen(0);
-
-    API_Set_Text_Pos(0x0, 0x60);
-    //API_PutS("cocus was here", 0x00ff);
-
-    while(1)
-    {
-   Watchdog_Pet();
-   if (API_Get_Sys_Msg() == 4)
-   {
-  API_Set_Text_Pos(0x0, 0x80);
-  //API_PutS("bye!", 0x00ff);
-  //API_Update_Screen(0);
-
-  break;
-   }
-    }
-
-#endif
+    PutS_2(buffer, -1);
 }
